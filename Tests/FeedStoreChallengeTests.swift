@@ -55,33 +55,43 @@ class CouchbaseLiteFeedStore: FeedStore {
 	}()
 
 	private let storeURL: URL
+	private let queue = DispatchQueue(label: "\(CouchbaseLiteFeedStore.self).queue", qos: .userInitiated)
 
 	init(storeURL: URL) {
 		self.storeURL = storeURL
 	}
 
 	func deleteCachedFeed(completion: @escaping DeletionCompletion) {
-		if let cache = database.document(withID: "cache") {
-			try! database.deleteDocument(cache)
+		let database = self.database
+		queue.async {
+			if let cache = database.document(withID: "cache") {
+				try! database.deleteDocument(cache)
+			}
+			completion(nil)
 		}
-		completion(nil)
 	}
 
 	func insert(_ feed: [LocalFeedImage], timestamp: Date, completion: @escaping InsertionCompletion) {
-		let cache = Cache(feed: feed, timestamp: timestamp)
-		try! database.saveDocument(cache.toDocument)
-		completion(nil)
+		let database = self.database
+		queue.async {
+			let cache = Cache(feed: feed, timestamp: timestamp)
+			try! database.saveDocument(cache.toDocument)
+			completion(nil)
+		}
 	}
 
 	func retrieve(completion: @escaping RetrievalCompletion) {
-		guard let cache = database.document(withID: "cache"),
-			  let result = cache.array(forKey: "feed")?.toArray() as? [[String: Any]] else {
-			return completion(.empty)
-		}
+		let database = self.database
+		queue.async {
+			guard let cache = database.document(withID: "cache"),
+				  let result = cache.array(forKey: "feed")?.toArray() as? [[String: Any]] else {
+				return completion(.empty)
+			}
 
-		let feed = makeLocalFeedImages(from: result)
-		let timestamp = makeTimestamp(from:  cache.double(forKey: "timestamp"))
-		completion(.found(feed: feed, timestamp: timestamp))
+			let feed = self.makeLocalFeedImages(from: result)
+			let timestamp = self.makeTimestamp(from:  cache.double(forKey: "timestamp"))
+			completion(.found(feed: feed, timestamp: timestamp))
+		}
 	}
 
 	private func makeLocalFeedImages(from result: [[String: Any]]) -> [LocalFeedImage] {
@@ -180,9 +190,9 @@ class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 	}
 	
 	func test_storeSideEffects_runSerially() throws {
-//		let sut = try makeSUT()
-//
-//		assertThatSideEffectsRunSerially(on: sut)
+		let sut = try makeSUT()
+
+		assertThatSideEffectsRunSerially(on: sut)
 	}
 	
 	// - MARK: Helpers
