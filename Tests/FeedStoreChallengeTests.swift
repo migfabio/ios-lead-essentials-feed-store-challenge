@@ -4,18 +4,82 @@
 
 import XCTest
 import FeedStoreChallenge
+import CouchbaseLiteSwift
 
 class CouchbaseLiteFeedStore: FeedStore {
+	private var dbConfig: DatabaseConfiguration {
+		let dbConfig = DatabaseConfiguration()
+		dbConfig.directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("test").path
+		return dbConfig
+	}
+
+	private lazy var database = try! Database(name: "feed-store", config: dbConfig)
+
 	func deleteCachedFeed(completion: @escaping DeletionCompletion) {}
 
-	func insert(_ feed: [LocalFeedImage], timestamp: Date, completion: @escaping InsertionCompletion) {}
+	func insert(_ feed: [LocalFeedImage], timestamp: Date, completion: @escaping InsertionCompletion) {
+		let dbItems: [MutableDictionaryObject] = feed.map { item -> [String: Any] in
+			let json: [String: Any?] = [
+				"id": item.id.uuidString,
+				"description": item.description,
+				"location": item.location,
+				"url": item.url.absoluteString
+			]
+			return json.compactMapValues { $0 }
+		}
+		.map { MutableDictionaryObject(data: $0) }
+
+		let cache = MutableDocument()
+			.setArray(MutableArrayObject(data: dbItems), forKey: "feed")
+			.setDouble(timestamp.timeIntervalSinceReferenceDate, forKey: "timestamp")
+
+		try! database.saveDocument(cache)
+
+		completion(nil)
+	}
 
 	func retrieve(completion: @escaping RetrievalCompletion) {
-		completion(.empty)
+		let query = QueryBuilder
+			.select(SelectResult.all())
+			.from(DataSource.database(database))
+
+		if let results = try? query.execute(),
+		   let cache = results.allResults().first?.dictionary(forKey: "feed-store"),
+		   let feed = cache.array(forKey: "feed")?.toArray() as? [[String: Any]] {
+			let localFeed = feed.compactMap { item -> LocalFeedImage? in
+				guard let idString = item["id"] as? String, let id = UUID(uuidString: idString),
+					let description = item["description"] as? String?,
+					let location = item["location"] as? String?,
+					let urlString = item["url"] as? String, let url = URL(string: urlString) else {
+					return nil
+				}
+				return LocalFeedImage(id: id, description: description, location: location, url: url)
+			}
+			completion(
+				.found(
+					feed: localFeed,
+					timestamp: Date(timeIntervalSinceReferenceDate: cache.double(forKey: "timestamp"))
+				)
+			)
+		} else {
+			completion(.empty)
+		}
 	}
 }
 
 class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
+
+	override func setUp() {
+		super.setUp()
+		let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("test")
+		try? FileManager.default.removeItem(at: storeURL)
+	}
+
+	override func tearDown() {
+		super.tearDown()
+		let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("test")
+		try? FileManager.default.removeItem(at: storeURL)
+	}
 	
 	func test_retrieve_deliversEmptyOnEmptyCache() throws {
 		let sut = try makeSUT()
@@ -30,9 +94,9 @@ class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 	}
 	
 	func test_retrieve_deliversFoundValuesOnNonEmptyCache() throws {
-//		let sut = try makeSUT()
-//
-//		assertThatRetrieveDeliversFoundValuesOnNonEmptyCache(on: sut)
+		let sut = try makeSUT()
+
+		assertThatRetrieveDeliversFoundValuesOnNonEmptyCache(on: sut)
 	}
 	
 	func test_retrieve_hasNoSideEffectsOnNonEmptyCache() throws {
