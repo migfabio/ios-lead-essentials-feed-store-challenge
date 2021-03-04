@@ -55,7 +55,7 @@ class CouchbaseLiteFeedStore: FeedStore {
 	}()
 
 	private let storeURL: URL
-	private let queue = DispatchQueue(label: "\(CouchbaseLiteFeedStore.self).queue", qos: .userInitiated)
+	private let queue = DispatchQueue(label: "\(CouchbaseLiteFeedStore.self).queue", qos: .userInitiated, attributes: .concurrent)
 
 	init(storeURL: URL) {
 		self.storeURL = storeURL
@@ -63,7 +63,7 @@ class CouchbaseLiteFeedStore: FeedStore {
 
 	func deleteCachedFeed(completion: @escaping DeletionCompletion) {
 		let database = self.database
-		queue.async {
+		queue.async(flags: .barrier) {
 			if let cache = database.document(withID: "cache") {
 				try! database.deleteDocument(cache)
 			}
@@ -73,7 +73,7 @@ class CouchbaseLiteFeedStore: FeedStore {
 
 	func insert(_ feed: [LocalFeedImage], timestamp: Date, completion: @escaping InsertionCompletion) {
 		let database = self.database
-		queue.async {
+		queue.async(flags: .barrier) {
 			let cache = Cache(feed: feed, timestamp: timestamp)
 			try! database.saveDocument(cache.toDocument)
 			completion(nil)
