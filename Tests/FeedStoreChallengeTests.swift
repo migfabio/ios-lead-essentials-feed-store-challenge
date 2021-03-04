@@ -74,19 +74,13 @@ class CouchbaseLiteFeedStore: FeedStore {
 	}
 
 	func retrieve(completion: @escaping RetrievalCompletion) {
-		let query = QueryBuilder
-			.select(SelectResult.all())
-			.from(DataSource.database(database))
-
-		guard let results = try? query.execute(),
-			  let result = results.allResults().first?.dictionary(forKey: "feed-store"),
-			  let feedArray = result.array(forKey: "feed")?.toArray() as? [[String: Any]]
-		else {
+		guard let cache = database.document(withID: "cache"),
+			  let result = cache.array(forKey: "feed")?.toArray() as? [[String: Any]] else {
 			return completion(.empty)
 		}
 
-		let feed = makeLocalFeedImages(from: feedArray)
-		let timestamp = makeTimestamp(from:  result.double(forKey: "timestamp"))
+		let feed = makeLocalFeedImages(from: result)
+		let timestamp = makeTimestamp(from:  cache.double(forKey: "timestamp"))
 		completion(.found(feed: feed, timestamp: timestamp))
 	}
 
