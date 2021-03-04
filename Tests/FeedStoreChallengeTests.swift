@@ -106,12 +106,12 @@ class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 
 	override func setUp() {
 		super.setUp()
-		try? FileManager.default.removeItem(at: storeURL())
+		setupEmptyStoreState()
 	}
 
 	override func tearDown() {
 		super.tearDown()
-		try? FileManager.default.removeItem(at: storeURL())
+		undoStoreSideEffects()
 	}
 	
 	func test_retrieve_deliversEmptyOnEmptyCache() throws {
@@ -196,12 +196,23 @@ class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 		return sut
 	}
 
-	func storeURL() -> URL {
+	private func storeURL() -> URL {
 		FileManager.default
 			.temporaryDirectory
 			.appendingPathComponent("\(type(of: self))")
 	}
-	
+
+	private func setupEmptyStoreState() {
+		deleteStoreArtifacts()
+	}
+
+	private func undoStoreSideEffects() {
+		deleteStoreArtifacts()
+	}
+
+	private func deleteStoreArtifacts() {
+		try? FileManager.default.removeItem(at: storeURL())
+	}
 }
 
 //  ***********************
