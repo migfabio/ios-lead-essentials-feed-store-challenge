@@ -133,9 +133,9 @@ class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 	}
 	
 	func test_retrieve_hasNoSideEffectsOnNonEmptyCache() throws {
-//		let sut = try makeSUT()
-//
-//		assertThatRetrieveHasNoSideEffectsOnNonEmptyCache(on: sut)
+		let sut = try makeSUT()
+
+		assertThatRetrieveHasNoSideEffectsOnNonEmptyCache(on: sut)
 	}
 	
 	func test_insert_deliversNoErrorOnEmptyCache() throws {
