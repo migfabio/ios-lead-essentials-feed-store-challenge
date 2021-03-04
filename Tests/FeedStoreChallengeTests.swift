@@ -75,14 +75,12 @@ class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 
 	override func setUp() {
 		super.setUp()
-		let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("test")
-		try? FileManager.default.removeItem(at: storeURL)
+		try? FileManager.default.removeItem(at: storeURL())
 	}
 
 	override func tearDown() {
 		super.tearDown()
-		let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("test")
-		try? FileManager.default.removeItem(at: storeURL)
+		try? FileManager.default.removeItem(at: storeURL())
 	}
 	
 	func test_retrieve_deliversEmptyOnEmptyCache() throws {
@@ -160,12 +158,17 @@ class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 	// - MARK: Helpers
 	
 	private func makeSUT(file: StaticString = #filePath, line: UInt = #line) throws -> FeedStore {
-		let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("test")
-		let sut = CouchbaseLiteFeedStore(storeURL: storeURL)
+		let sut = CouchbaseLiteFeedStore(storeURL: storeURL())
 		addTeardownBlock { [weak sut] in
 			XCTAssertNil(sut, file: file, line: line)
 		}
 		return sut
+	}
+
+	func storeURL() -> URL {
+		FileManager.default
+			.temporaryDirectory
+			.appendingPathComponent("\(type(of: self))")
 	}
 	
 }
