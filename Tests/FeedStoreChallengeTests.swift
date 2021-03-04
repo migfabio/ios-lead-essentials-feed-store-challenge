@@ -5,24 +5,22 @@
 import XCTest
 import FeedStoreChallenge
 
+class CouchbaseLiteFeedStore: FeedStore {
+	func deleteCachedFeed(completion: @escaping DeletionCompletion) {}
+
+	func insert(_ feed: [LocalFeedImage], timestamp: Date, completion: @escaping InsertionCompletion) {}
+
+	func retrieve(completion: @escaping RetrievalCompletion) {
+		completion(.empty)
+	}
+}
+
 class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 	
-	//  ***********************
-	//
-	//  Follow the TDD process:
-	//
-	//  1. Uncomment and run one test at a time (run tests with CMD+U).
-	//  2. Do the minimum to make the test pass and commit.
-	//  3. Refactor if needed and commit again.
-	//
-	//  Repeat this process until all tests are passing.
-	//
-	//  ***********************
-	
 	func test_retrieve_deliversEmptyOnEmptyCache() throws {
-//		let sut = try makeSUT()
-//		
-//		assertThatRetrieveDeliversEmptyOnEmptyCache(on: sut)
+		let sut = try makeSUT()
+
+		assertThatRetrieveDeliversEmptyOnEmptyCache(on: sut)
 	}
 	
 	func test_retrieve_hasNoSideEffectsOnEmptyCache() throws {
@@ -94,7 +92,7 @@ class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 	// - MARK: Helpers
 	
 	private func makeSUT() throws -> FeedStore {
-		fatalError("Must be implemented")
+		CouchbaseLiteFeedStore()
 	}
 	
 }
