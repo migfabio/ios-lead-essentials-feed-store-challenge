@@ -7,13 +7,17 @@ import FeedStoreChallenge
 import CouchbaseLiteSwift
 
 class CouchbaseLiteFeedStore: FeedStore {
-	private var dbConfig: DatabaseConfiguration {
+	private lazy var database: Database = {
 		let dbConfig = DatabaseConfiguration()
-		dbConfig.directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("test").path
-		return dbConfig
-	}
+		dbConfig.directory = storeURL.path
+		return try! Database(name: "feed-store", config: dbConfig)
+	}()
 
-	private lazy var database = try! Database(name: "feed-store", config: dbConfig)
+	private let storeURL: URL
+
+	init(storeURL: URL) {
+		self.storeURL = storeURL
+	}
 
 	func deleteCachedFeed(completion: @escaping DeletionCompletion) {}
 
@@ -156,7 +160,8 @@ class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 	// - MARK: Helpers
 	
 	private func makeSUT(file: StaticString = #filePath, line: UInt = #line) throws -> FeedStore {
-		let sut = CouchbaseLiteFeedStore()
+		let storeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!.appendingPathComponent("test")
+		let sut = CouchbaseLiteFeedStore(storeURL: storeURL)
 		addTeardownBlock { [weak sut] in
 			XCTAssertNil(sut, file: file, line: line)
 		}
