@@ -91,8 +91,12 @@ class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 	
 	// - MARK: Helpers
 	
-	private func makeSUT() throws -> FeedStore {
-		CouchbaseLiteFeedStore()
+	private func makeSUT(file: StaticString = #filePath, line: UInt = #line) throws -> FeedStore {
+		let sut = CouchbaseLiteFeedStore()
+		addTeardownBlock { [weak sut] in
+			XCTAssertNil(sut, file: file, line: line)
+		}
+		return sut
 	}
 	
 }
