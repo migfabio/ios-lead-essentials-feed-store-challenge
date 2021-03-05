@@ -11,18 +11,30 @@ import Foundation
 
 public class CouchbaseLiteFeedStore: FeedStore {
 	private struct Cache {
-		private let feed: [CouchbaseLiteFeedImage]
-		private let timestamp: Date
+		let feed: [CouchbaseLiteFeedImage]
+		let timestamp: Date
+
+		var toDocument: MutableDocument {
+			MutableDocument(id: "cache")
+				.setArray(MutableArrayObject(data: feed.map { $0.toDictionaryObject }), forKey: "feed")
+				.setDouble(timestamp.timeIntervalSinceReferenceDate, forKey: "timestamp")
+		}
 
 		init(feed: [LocalFeedImage], timestamp: Date) {
 			self.feed = feed.map(CouchbaseLiteFeedImage.init)
 			self.timestamp = timestamp
 		}
 
-		var toDocument: MutableDocument {
-			MutableDocument(id: "cache")
-				.setArray(MutableArrayObject(data: feed.map { $0.toDictionaryObject }), forKey: "feed")
-				.setDouble(timestamp.timeIntervalSinceReferenceDate, forKey: "timestamp")
+		init?(document: Document) {
+			guard let feedJSON = document.array(forKey: "feed") else {
+				return nil
+			}
+			self.feed = feedJSON.reduce(into: [DictionaryObject]()) { output, element in
+				if let dicationary = element as? DictionaryObject {
+					output.append(dicationary)
+				}
+			}.compactMap { CouchbaseLiteFeedImage(json: $0) }
+			self.timestamp = Date(timeIntervalSinceReferenceDate: document.double(forKey: "timestamp"))
 		}
 	}
 
@@ -43,11 +55,27 @@ public class CouchbaseLiteFeedStore: FeedStore {
 			)
 		}
 
+		var toLocalFeedImage: LocalFeedImage {
+			LocalFeedImage(id: id, description: description, location: location, url: url)
+		}
+
 		init(localFeedImage: LocalFeedImage) {
 			self.id = localFeedImage.id
 			self.description = localFeedImage.description
 			self.location = localFeedImage.location
 			self.url = localFeedImage.url
+		}
+
+		init?(json: DictionaryObject) {
+			guard let idString = json.string(forKey: "id"), let id = UUID(uuidString: idString),
+				  let urlString = json.string(forKey: "url"), let url = URL(string: urlString) else {
+				return nil
+			}
+
+			self.id = id
+			self.description = json.string(forKey: "description")
+			self.location = json.string(forKey: "location")
+			self.url = url
 		}
 	}
 
@@ -58,7 +86,11 @@ public class CouchbaseLiteFeedStore: FeedStore {
 	}()
 
 	private let storeURL: URL
-	private let queue = DispatchQueue(label: "\(CouchbaseLiteFeedStore.self).queue", qos: .userInitiated, attributes: .concurrent)
+	private let queue = DispatchQueue(
+		label: "\(CouchbaseLiteFeedStore.self).queue",
+		qos: .userInitiated,
+		attributes: .concurrent
+	)
 
 	public init(storeURL: URL) {
 		self.storeURL = storeURL
@@ -70,14 +102,16 @@ public class CouchbaseLiteFeedStore: FeedStore {
 		}
 
 		queue.async(flags: .barrier) {
-			if let cache = database.document(withID: "cache") {
-				do {
-					try database.deleteDocument(cache)
-				} catch {
-					completion(error)
-				}
+			guard let cache = database.document(withID: "cache") else {
+				return completion(nil)
 			}
-			completion(nil)
+
+			do {
+				try database.deleteDocument(cache)
+				completion(nil)
+			} catch {
+				completion(error)
+			}
 		}
 	}
 
@@ -87,9 +121,8 @@ public class CouchbaseLiteFeedStore: FeedStore {
 		}
 
 		queue.async(flags: .barrier) {
-			let cache = Cache(feed: feed, timestamp: timestamp)
 			do {
-				try database.saveDocument(cache.toDocument)
+				try database.saveDocument(Cache(feed: feed, timestamp: timestamp).toDocument)
 				completion(nil)
 			} catch {
 				completion(error)
@@ -103,30 +136,18 @@ public class CouchbaseLiteFeedStore: FeedStore {
 		}
 
 		queue.async {
-			guard let cache = database.document(withID: "cache"),
-				  let result = cache.array(forKey: "feed")?.toArray() as? [[String: Any]] else {
+			guard let cacheDocument = database.document(withID: "cache"),
+				  let cache = Cache(document: cacheDocument) else {
 				return completion(.empty)
+
 			}
 
-			let feed = self.makeLocalFeedImages(from: result)
-			let timestamp = self.makeTimestamp(from:  cache.double(forKey: "timestamp"))
-			completion(.found(feed: feed, timestamp: timestamp))
+			completion(
+				.found(
+					feed: cache.feed.map { $0.toLocalFeedImage },
+					timestamp: cache.timestamp
+				)
+			)
 		}
-	}
-
-	private func makeLocalFeedImages(from result: [[String: Any]]) -> [LocalFeedImage] {
-		result.compactMap {
-			guard let idString = $0["id"] as? String, let id = UUID(uuidString: idString),
-				  let description = $0["description"] as? String?,
-				  let location = $0["location"] as? String?,
-				  let urlString = $0["url"] as? String, let url = URL(string: urlString) else {
-				return nil
-			}
-			return LocalFeedImage(id: id, description: description, location: location, url: url)
-		}
-	}
-
-	private func makeTimestamp(from result: TimeInterval) -> Date {
-		Date(timeIntervalSinceReferenceDate: result)
 	}
 }
