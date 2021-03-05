@@ -51,10 +51,10 @@ public class CouchbaseLiteFeedStore: FeedStore {
 		}
 	}
 
-	private lazy var database: Database = {
+	private lazy var database: Database? = {
 		let dbConfig = DatabaseConfiguration()
 		dbConfig.directory = storeURL.path
-		return try! Database(name: "feed-store", config: dbConfig)
+		return try? Database(name: "feed-store", config: dbConfig)
 	}()
 
 	private let storeURL: URL
@@ -65,26 +65,43 @@ public class CouchbaseLiteFeedStore: FeedStore {
 	}
 
 	public func deleteCachedFeed(completion: @escaping DeletionCompletion) {
-		let database = self.database
+		guard let database = database else {
+			return completion(nil)
+		}
+
 		queue.async(flags: .barrier) {
 			if let cache = database.document(withID: "cache") {
-				try! database.deleteDocument(cache)
+				do {
+					try database.deleteDocument(cache)
+				} catch {
+					completion(error)
+				}
 			}
 			completion(nil)
 		}
 	}
 
 	public func insert(_ feed: [LocalFeedImage], timestamp: Date, completion: @escaping InsertionCompletion) {
-		let database = self.database
+		guard let database = database else {
+			return completion(nil)
+		}
+
 		queue.async(flags: .barrier) {
 			let cache = Cache(feed: feed, timestamp: timestamp)
-			try! database.saveDocument(cache.toDocument)
-			completion(nil)
+			do {
+				try database.saveDocument(cache.toDocument)
+				completion(nil)
+			} catch {
+				completion(error)
+			}
 		}
 	}
 
 	public func retrieve(completion: @escaping RetrievalCompletion) {
-		let database = self.database
+		guard let database = database else {
+			return completion(.empty)
+		}
+
 		queue.async {
 			guard let cache = database.document(withID: "cache"),
 				  let result = cache.array(forKey: "feed")?.toArray() as? [[String: Any]] else {
