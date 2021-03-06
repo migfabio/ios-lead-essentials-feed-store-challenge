@@ -10,12 +10,14 @@ import CouchbaseLiteSwift
 import Foundation
 
 public class CouchbaseLiteFeedStore: FeedStore {
+	private static let documentID = "cache-document"
+	
 	private struct Cache {
 		let feed: [LocalFeedImage]
 		let timestamp: Date
 
 		var toDocument: MutableDocument {
-			MutableDocument(id: "cache")
+			MutableDocument(id: CouchbaseLiteFeedStore.documentID)
 				.setArray(MutableArrayObject(data: feed.map { $0.toDictionaryObject }), forKey: "feed")
 				.setDouble(timestamp.timeIntervalSinceReferenceDate, forKey: "timestamp")
 		}
@@ -55,7 +57,7 @@ public class CouchbaseLiteFeedStore: FeedStore {
 	public func deleteCachedFeed(completion: @escaping DeletionCompletion) {
 		let database = self.database
 		queue.async(flags: .barrier) {
-			guard let cache = database.document(withID: "cache") else {
+			guard let cache = database.document(withID: Self.documentID) else {
 				return completion(nil)
 			}
 
@@ -83,7 +85,7 @@ public class CouchbaseLiteFeedStore: FeedStore {
 	public func retrieve(completion: @escaping RetrievalCompletion) {
 		let database = self.database
 		queue.async {
-			guard let cacheDocument = database.document(withID: "cache"),
+			guard let cacheDocument = database.document(withID: Self.documentID),
 				  let cache = Cache(document: cacheDocument) else {
 				return completion(.empty)
 
