@@ -9,7 +9,7 @@
 import CouchbaseLiteSwift
 import Foundation
 
-public class CouchbaseLiteFeedStore: FeedStore {
+public final class CouchbaseLiteFeedStore: FeedStore {
 	private static let documentID = "cache-document"
 	
 	private struct Cache {
