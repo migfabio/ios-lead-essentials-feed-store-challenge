@@ -38,28 +38,22 @@ public class CouchbaseLiteFeedStore: FeedStore {
 		}
 	}
 
-	private lazy var database: Database? = {
-		let dbConfig = DatabaseConfiguration()
-		dbConfig.directory = storeURL.path
-		return try? Database(name: "feed-store", config: dbConfig)
-	}()
+	private let database: Database
 
-	private let storeURL: URL
 	private let queue = DispatchQueue(
 		label: "\(CouchbaseLiteFeedStore.self).queue",
 		qos: .userInitiated,
 		attributes: .concurrent
 	)
 
-	public init(storeURL: URL) {
-		self.storeURL = storeURL
+	public init(storeURL: URL) throws {
+		let dbConfig = DatabaseConfiguration()
+		dbConfig.directory = storeURL.path
+		self.database = try Database(name: "feed-store", config: dbConfig)
 	}
 
 	public func deleteCachedFeed(completion: @escaping DeletionCompletion) {
-		guard let database = database else {
-			return completion(nil)
-		}
-
+		let database = self.database
 		queue.async(flags: .barrier) {
 			guard let cache = database.document(withID: "cache") else {
 				return completion(nil)
@@ -75,10 +69,7 @@ public class CouchbaseLiteFeedStore: FeedStore {
 	}
 
 	public func insert(_ feed: [LocalFeedImage], timestamp: Date, completion: @escaping InsertionCompletion) {
-		guard let database = database else {
-			return completion(nil)
-		}
-
+		let database = self.database
 		queue.async(flags: .barrier) {
 			do {
 				try database.saveDocument(Cache(feed: feed, timestamp: timestamp).toDocument)
@@ -90,10 +81,7 @@ public class CouchbaseLiteFeedStore: FeedStore {
 	}
 
 	public func retrieve(completion: @escaping RetrievalCompletion) {
-		guard let database = database else {
-			return completion(.empty)
-		}
-
+		let database = self.database
 		queue.async {
 			guard let cacheDocument = database.document(withID: "cache"),
 				  let cache = Cache(document: cacheDocument) else {
