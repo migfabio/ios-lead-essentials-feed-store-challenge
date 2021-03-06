@@ -7,21 +7,14 @@ import FeedStoreChallenge
 
 class FeedStoreIntegrationTests: XCTestCase {
 	
-	//  ***********************
-	//
-	//  Uncomment and implement the following tests if your
-	//  implementation persists data to disk (e.g., CoreData/Realm)
-	//
-	//  ***********************
-	
 	override func setUpWithError() throws {
 		try super.setUpWithError()
 		
-		try setupEmptyStoreState()
+		setupEmptyStoreState()
 	}
 	
 	override func tearDownWithError() throws {
-		try undoStoreSideEffects()
+		undoStoreSideEffects()
 		
 		try super.tearDownWithError()
 	}
@@ -71,16 +64,29 @@ class FeedStoreIntegrationTests: XCTestCase {
 	
 	// - MARK: Helpers
 	
-	private func makeSUT() throws -> FeedStore {
-		fatalError("Must be implemented")
+	private func makeSUT(file: StaticString = #filePath, line: UInt = #line) throws -> FeedStore {
+		let sut = CouchbaseLiteFeedStore(storeURL: storeURL())
+		addTeardownBlock { [weak sut] in
+			XCTAssertNil(sut, file: file, line: line)
+		}
+		return sut
+	}
+
+	private func storeURL() -> URL {
+		FileManager.default
+			.temporaryDirectory
+			.appendingPathComponent("\(type(of: self))")
 	}
 	
-	private func setupEmptyStoreState() throws {
-		
+	private func setupEmptyStoreState() {
+		deleteStoreArtifacts()
 	}
 	
-	private func undoStoreSideEffects() throws {
-		
+	private func undoStoreSideEffects() {
+		deleteStoreArtifacts()
 	}
-	
+
+	private func deleteStoreArtifacts() {
+		try? FileManager.default.removeItem(at: storeURL())
+	}
 }
