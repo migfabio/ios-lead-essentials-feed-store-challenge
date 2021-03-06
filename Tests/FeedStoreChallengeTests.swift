@@ -93,9 +93,7 @@ class FeedStoreChallengeTests: XCTestCase, FeedStoreSpecs {
 	
 	private func makeSUT(file: StaticString = #filePath, line: UInt = #line) throws -> FeedStore {
 		let sut = try CouchbaseLiteFeedStore(storeURL: storeURL())
-		addTeardownBlock { [weak sut] in
-			XCTAssertNil(sut, file: file, line: line)
-		}
+		trackForMemoryLeak(sut, file: file, line: line)
 		return sut
 	}
 
