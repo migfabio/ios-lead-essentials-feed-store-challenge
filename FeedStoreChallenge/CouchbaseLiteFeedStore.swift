@@ -11,7 +11,7 @@ import Foundation
 
 public class CouchbaseLiteFeedStore: FeedStore {
 	private struct Cache {
-		let feed: [CouchbaseLiteFeedImage]
+		let feed: [LocalFeedImage]
 		let timestamp: Date
 
 		var toDocument: MutableDocument {
@@ -21,7 +21,7 @@ public class CouchbaseLiteFeedStore: FeedStore {
 		}
 
 		init(feed: [LocalFeedImage], timestamp: Date) {
-			self.feed = feed.map(CouchbaseLiteFeedImage.init)
+			self.feed = feed
 			self.timestamp = timestamp
 		}
 
@@ -33,49 +33,8 @@ public class CouchbaseLiteFeedStore: FeedStore {
 				if let dicationary = element as? DictionaryObject {
 					output.append(dicationary)
 				}
-			}.compactMap { CouchbaseLiteFeedImage(json: $0) }
+			}.compactMap(LocalFeedImage.init)
 			self.timestamp = Date(timeIntervalSinceReferenceDate: document.double(forKey: "timestamp"))
-		}
-	}
-
-	private struct CouchbaseLiteFeedImage {
-		private let id: UUID
-		private let description: String?
-		private let location: String?
-		private let url: URL
-
-		var toDictionaryObject: DictionaryObject {
-			MutableDictionaryObject(
-				data: [
-					"id": id.uuidString,
-					"description": description,
-					"location": location,
-					"url": url.absoluteString
-				].compactMapValues { $0 }
-			)
-		}
-
-		var toLocalFeedImage: LocalFeedImage {
-			LocalFeedImage(id: id, description: description, location: location, url: url)
-		}
-
-		init(localFeedImage: LocalFeedImage) {
-			self.id = localFeedImage.id
-			self.description = localFeedImage.description
-			self.location = localFeedImage.location
-			self.url = localFeedImage.url
-		}
-
-		init?(json: DictionaryObject) {
-			guard let idString = json.string(forKey: "id"), let id = UUID(uuidString: idString),
-				  let urlString = json.string(forKey: "url"), let url = URL(string: urlString) else {
-				return nil
-			}
-
-			self.id = id
-			self.description = json.string(forKey: "description")
-			self.location = json.string(forKey: "location")
-			self.url = url
 		}
 	}
 
@@ -149,5 +108,34 @@ public class CouchbaseLiteFeedStore: FeedStore {
 				)
 			)
 		}
+	}
+}
+
+private extension LocalFeedImage {
+	var toDictionaryObject: DictionaryObject {
+		MutableDictionaryObject(
+			data: [
+				"id": id.uuidString,
+				"description": description,
+				"location": location,
+				"url": url.absoluteString
+			].compactMapValues { $0 }
+		)
+	}
+
+	var toLocalFeedImage: LocalFeedImage {
+		LocalFeedImage(id: id, description: description, location: location, url: url)
+	}
+
+	init?(json: DictionaryObject) {
+		guard let idString = json.string(forKey: "id"), let id = UUID(uuidString: idString),
+			  let urlString = json.string(forKey: "url"), let url = URL(string: urlString) else {
+			return nil
+		}
+
+		self.id = id
+		self.description = json.string(forKey: "description")
+		self.location = json.string(forKey: "location")
+		self.url = url
 	}
 }
