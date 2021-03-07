@@ -93,7 +93,7 @@ public final class CouchbaseLiteFeedStore: FeedStore {
 
 			completion(
 				.found(
-					feed: cache.feed.map { $0.toLocalFeedImage },
+					feed: cache.feed,
 					timestamp: cache.timestamp
 				)
 			)
@@ -111,10 +111,6 @@ private extension LocalFeedImage {
 				"url": url.absoluteString
 			].compactMapValues { $0 }
 		)
-	}
-
-	var toLocalFeedImage: LocalFeedImage {
-		LocalFeedImage(id: id, description: description, location: location, url: url)
 	}
 
 	init?(json: DictionaryObject) {
